@@ -3,7 +3,7 @@ import json
 
 from django.http import HttpResponseNotFound
 from django.shortcuts import render
-from django.shortcuts import get_list_or_404
+from django.core.exceptions import ObjectDoesNotExist
 
 from .models import Pokemon
 from .models import PokemonEntity
@@ -42,7 +42,7 @@ def show_all_pokemons(request):
         pokemons_on_page.append({
             'pokemon_id': pokemon['id'],
             'title_ru': pokemon['title'],
-            'img_url': pokemon['photo'],
+            'img_url': 'http://127.0.0.1:8000/media/' + pokemon['photo'],
         })
 
     return render(request, "mainpage.html", context={
@@ -52,18 +52,24 @@ def show_all_pokemons(request):
 
 
 def show_pokemon(request, pokemon_id):
-    pokemon_for_show = Pokemon.objects.get(id=int(pokemon_id))
-    pokemon_entities = PokemonEntity.objects.filter(pokemon_id=int(pokemon_id)).values()
+    try:
+        current_pokemon = Pokemon.objects.get(id=int(pokemon_id))
+    except ObjectDoesNotExist:
+        print("Pokemon doesn't exist.")
+
+    pokemons_for_show = PokemonEntity.objects.filter(pokemon_id=int(pokemon_id)).values()
+
     pokemon = {
-        'pokemon_id': pokemon_for_show.id,
-        'title_ru': pokemon_for_show.title,
-        'img_url': 'http://127.0.0.1:8000/media/' + str(pokemon_for_show.photo),
-        'title_en': pokemon_for_show.title_en,
-        'title_jp': pokemon_for_show.title_jp,
-        'description': pokemon_for_show.description,
+        'pokemon_id': current_pokemon.id,
+        'title_ru': current_pokemon.title,
+        'img_url': 'http://127.0.0.1:8000/media/' + str(current_pokemon.photo),
+        'title_en': current_pokemon.title_en,
+        'title_jp': current_pokemon.title_jp,
+        'description': current_pokemon.description,
     }
-    if not (pokemon_for_show.evolution_from_id is None):
-        pokemon_parent = Pokemon.objects.filter(id=pokemon_for_show.evolution_from_id).values()
+
+    if not (current_pokemon.evolution_from_id is None):
+        pokemon_parent = Pokemon.objects.filter(id=current_pokemon.evolution_from_id).values()
 
         pokemon.update({
             "previous_evolution": {
@@ -72,7 +78,6 @@ def show_pokemon(request, pokemon_id):
                 'img_url': 'http://127.0.0.1:8000/media/' + pokemon_parent[0]['photo'],
             }
         })
-    current_pokemon = Pokemon.objects.get(id=int(pokemon_id))
     if current_pokemon.children.all().exists():
         pokemon.update({
             "next_evolution": {
@@ -83,9 +88,9 @@ def show_pokemon(request, pokemon_id):
         })
 
     folium_map = folium.Map(location=MOSCOW_CENTER, zoom_start=12)
-    for pokemon_entity in pokemon_entities:
+    for pokemon_for_show in pokemons_for_show:
         add_pokemon(
-            folium_map, pokemon_entity['lat'], pokemon_entity['lon'],
+            folium_map, pokemon_for_show['lat'], pokemon_for_show['lon'],
             pokemon['title_ru'], pokemon['img_url'])
 
     return render(request, "pokemon.html", context={'map': folium_map._repr_html_(),
