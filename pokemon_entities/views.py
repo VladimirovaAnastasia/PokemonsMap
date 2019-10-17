@@ -25,8 +25,6 @@ def add_pokemon(folium_map, lat, lon, name, image_url=DEFAULT_IMAGE_URL):
 
 
 def show_all_pokemons(request):
-    # with open("pokemon_entities/pokemons.json", encoding="utf-8") as database:
-    #    pokemons = json.load(database)['pokemons']
     pokemons = Pokemon.objects.all().values()
     pokemon_entities = PokemonEntity.objects.all().values()
 
@@ -44,7 +42,7 @@ def show_all_pokemons(request):
         pokemons_on_page.append({
             'pokemon_id': pokemon['id'],
             'title_ru': pokemon['title'],
-            'img_url': 'http://127.0.0.1:8000/media/' + pokemon['photo'],
+            'img_url': pokemon['photo'],
         })
 
     return render(request, "mainpage.html", context={
@@ -54,18 +52,18 @@ def show_all_pokemons(request):
 
 
 def show_pokemon(request, pokemon_id):
-    find_pokemons = Pokemon.objects.filter(id=int(pokemon_id)).values()
+    pokemon_for_show = Pokemon.objects.get(id=int(pokemon_id))
     pokemon_entities = PokemonEntity.objects.filter(pokemon_id=int(pokemon_id)).values()
     pokemon = {
-        'pokemon_id': find_pokemons[0]['id'],
-        'title_ru': find_pokemons[0]['title'],
-        'img_url': 'http://127.0.0.1:8000/media/' + find_pokemons[0]['photo'],
-        'title_en': find_pokemons[0]['title_en'],
-        'title_jp': find_pokemons[0]['title_jp'],
-        'description': find_pokemons[0]['description'],
+        'pokemon_id': pokemon_for_show.id,
+        'title_ru': pokemon_for_show.title,
+        'img_url': 'http://127.0.0.1:8000/media/' + str(pokemon_for_show.photo),
+        'title_en': pokemon_for_show.title_en,
+        'title_jp': pokemon_for_show.title_jp,
+        'description': pokemon_for_show.description,
     }
-    if not (find_pokemons[0]['evolution_from_id'] is None):
-        pokemon_parent = Pokemon.objects.filter(id=find_pokemons[0]['evolution_from_id']).values()
+    if not (pokemon_for_show.evolution_from_id is None):
+        pokemon_parent = Pokemon.objects.filter(id=pokemon_for_show.evolution_from_id).values()
 
         pokemon.update({
             "previous_evolution": {
@@ -75,12 +73,12 @@ def show_pokemon(request, pokemon_id):
             }
         })
     current_pokemon = Pokemon.objects.get(id=int(pokemon_id))
-    if current_pokemon.child.all().exists():
+    if current_pokemon.children.all().exists():
         pokemon.update({
             "next_evolution": {
-                'pokemon_id': current_pokemon.child.all()[0].id,
-                'title_ru': current_pokemon.child.all()[0].title,
-                'img_url': 'http://127.0.0.1:8000/media/' + str(current_pokemon.child.all()[0].photo),
+                'pokemon_id': current_pokemon.children.all()[0].id,
+                'title_ru': current_pokemon.children.all()[0].title,
+                'img_url': 'http://127.0.0.1:8000/media/' + str(current_pokemon.children.all()[0].photo),
             }
         })
 

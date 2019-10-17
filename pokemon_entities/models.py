@@ -4,15 +4,19 @@ from django.db import models
 class Pokemon(models.Model):
     title = models.CharField('Заголовок', max_length=200)
     photo = models.ImageField('Фото')
-    description = models.CharField('Описание', max_length=600)
-    title_en = models.CharField('Заголовок EN', max_length=200)
-    title_jp = models.CharField('Заголовок JP', max_length=200)
-    evolution_from = models.ForeignKey('self', verbose_name='Эволюционирует от', null=True, blank=True, related_name='child', on_delete=models.CASCADE)
+    description = models.CharField('Описание', max_length=600, null=True, blank=True)
+    title_en = models.CharField('Заголовок EN', max_length=200, null=True, blank=True)
+    title_jp = models.CharField('Заголовок JP', max_length=200, null=True, blank=True)
+    evolution_from = models.ForeignKey('self',
+                                       verbose_name='Эволюционирует от',
+                                       null=True,
+                                       blank=True,
+                                       related_name='children',
+                                       on_delete=models.SET_NULL)
 
     def __str__(self):
         if self.title:
             return self.title
-        return f'{self.title} (empty)'
 
 
 class PokemonEntity(models.Model):
