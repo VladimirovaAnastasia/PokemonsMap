@@ -1,7 +1,5 @@
 import folium
-import json
 
-from django.http import HttpResponseNotFound
 from django.shortcuts import render
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -25,24 +23,26 @@ def add_pokemon(folium_map, lat, lon, name, image_url=DEFAULT_IMAGE_URL):
 
 
 def show_all_pokemons(request):
-    pokemons = Pokemon.objects.all().values()
-    pokemon_entities = PokemonEntity.objects.all().values()
+    pokemons = Pokemon.objects.values()
+    pokemon_entities = PokemonEntity.objects.values()
 
     folium_map = folium.Map(location=MOSCOW_CENTER, zoom_start=12)
 
-    for pokemon in pokemons:
-        for pokemon_entity in pokemon_entities:
-            if pokemon['id'] == pokemon_entity['pokemon_id']:
-                add_pokemon(
-                    folium_map, pokemon_entity['lat'], pokemon_entity['lon'],
-                    pokemon['title'], 'http://127.0.0.1:8000/media/' + pokemon['photo'])
+    pokemon_dict = dict([(key, value) for (key, value) in zip([pokemon['id'] for pokemon in pokemons],
+                                                              [pokemon for pokemon in pokemons])])
+
+    for pokemon_entity in pokemon_entities:
+        add_pokemon(
+            folium_map, pokemon_entity['lat'], pokemon_entity['lon'],
+            pokemon_dict[pokemon_entity['pokemon_id']]['title'],
+            request.build_absolute_uri('/media/') + pokemon_dict[pokemon_entity['pokemon_id']]['photo'])
 
     pokemons_on_page = []
     for pokemon in pokemons:
         pokemons_on_page.append({
             'pokemon_id': pokemon['id'],
             'title_ru': pokemon['title'],
-            'img_url': 'http://127.0.0.1:8000/media/' + pokemon['photo'],
+            'img_url': request.build_absolute_uri('/media/') + pokemon['photo'],
         })
 
     return render(request, "mainpage.html", context={
@@ -57,40 +57,42 @@ def show_pokemon(request, pokemon_id):
     except ObjectDoesNotExist:
         print("Pokemon doesn't exist.")
 
-    pokemons_for_show = PokemonEntity.objects.filter(pokemon_id=int(pokemon_id)).values()
+    pokemons_for_show = PokemonEntity.objects.filter(pokemon_id=int(pokemon_id))
 
     pokemon = {
         'pokemon_id': current_pokemon.id,
         'title_ru': current_pokemon.title,
-        'img_url': 'http://127.0.0.1:8000/media/' + str(current_pokemon.photo),
+        'img_url': request.build_absolute_uri('/media/') + str(current_pokemon.photo),
         'title_en': current_pokemon.title_en,
         'title_jp': current_pokemon.title_jp,
         'description': current_pokemon.description,
     }
 
-    if not (current_pokemon.evolution_from_id is None):
-        pokemon_parent = Pokemon.objects.filter(id=current_pokemon.evolution_from_id).values()
+    if not (current_pokemon.evolution_from is None):
+        pokemon_parent = current_pokemon.evolution_from
 
         pokemon.update({
             "previous_evolution": {
-                'pokemon_id': pokemon_parent[0]['id'],
-                'title_ru': pokemon_parent[0]['title'],
-                'img_url': 'http://127.0.0.1:8000/media/' + pokemon_parent[0]['photo'],
+                'pokemon_id': pokemon_parent.id,
+                'title_ru': pokemon_parent.title,
+                'img_url': request.build_absolute_uri('/media/') + str(pokemon_parent.photo),
             }
         })
-    if current_pokemon.children.all().exists():
+
+    if current_pokemon.children.exists():
+        next_pokemon = current_pokemon.children.all()[0]
         pokemon.update({
             "next_evolution": {
-                'pokemon_id': current_pokemon.children.all()[0].id,
-                'title_ru': current_pokemon.children.all()[0].title,
-                'img_url': 'http://127.0.0.1:8000/media/' + str(current_pokemon.children.all()[0].photo),
+                'pokemon_id': next_pokemon.id,
+                'title_ru': next_pokemon.title,
+                'img_url': request.build_absolute_uri('/media/') + str(next_pokemon.photo),
             }
         })
 
     folium_map = folium.Map(location=MOSCOW_CENTER, zoom_start=12)
     for pokemon_for_show in pokemons_for_show:
         add_pokemon(
-            folium_map, pokemon_for_show['lat'], pokemon_for_show['lon'],
+            folium_map, pokemon_for_show.lat, pokemon_for_show.lon,
             pokemon['title_ru'], pokemon['img_url'])
 
     return render(request, "pokemon.html", context={'map': folium_map._repr_html_(),
